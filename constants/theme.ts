@@ -5,25 +5,44 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Cores profissionais para app financeiro
+const primaryColor = '#2563EB'; // Azul profissional
+const successColor = '#10B981'; // Verde para receitas
+const dangerColor = '#EF4444'; // Vermelho para despesas
+const warningColor = '#F59E0B'; // Laranja para alertas
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: '#111827',
+    textSecondary: '#6B7280',
+    background: '#F9FAFB',
+    surface: '#FFFFFF',
+    surfaceSecondary: '#F3F4F6',
+    tint: primaryColor,
+    primary: primaryColor,
+    success: successColor,
+    danger: dangerColor,
+    warning: warningColor,
+    icon: '#6B7280',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: primaryColor,
+    border: '#E5E7EB',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F9FAFB',
+    textSecondary: '#D1D5DB',
+    background: '#111827',
+    surface: '#1F2937',
+    surfaceSecondary: '#374151',
+    tint: '#60A5FA',
+    primary: '#3B82F6',
+    success: '#34D399',
+    danger: '#F87171',
+    warning: '#FBBF24',
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: '#60A5FA',
+    border: '#374151',
   },
 };
 
