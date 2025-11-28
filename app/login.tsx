@@ -1,16 +1,15 @@
-import React, { useState } from 'react';
-import { StyleSheet, ScrollView, KeyboardAvoidingView, Platform, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Input } from '@/components/ui/input';
 import { Colors } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -29,46 +28,10 @@ export default function LoginScreen() {
 
     setLoading(true);
     setError(null);
-
-    console.log('🔐 Iniciando login...');
-    console.log('📧 Email:', email);
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
-
-      console.log('📥 Resposta do Supabase:', { data, error });
-
-      if (error) {
-        console.error('❌ Erro no login:', error.message);
-        setError(error.message || 'Erro ao fazer login. Verifique suas credenciais.');
-        setLoading(false);
-        return;
-      }
-
-      if (data.user) {
-        console.log('✅ Login bem-sucedido!');
-        console.log('👤 Usuário:', {
-          id: data.user.id,
-          email: data.user.email,
-          created_at: data.user.created_at,
-        });
-        console.log('🔑 Session:', data.session ? 'Sessão criada' : 'Sem sessão');
-        
-        // Login bem-sucedido - redirecionar para as tabs
-        router.replace('/(tabs)');
-      } else {
-        console.warn('⚠️ Login sem dados de usuário');
-        setError('Erro ao fazer login. Tente novamente.');
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error('💥 Erro inesperado no login:', err);
-      setError('Erro inesperado. Tente novamente.');
+    setTimeout(() => {
       setLoading(false);
-    }
+      router.replace('/(tabs)');
+    }, 800);
   };
 
   return (
@@ -81,7 +44,7 @@ export default function LoginScreen() {
         <ThemedView style={styles.content}>
           <ThemedView style={styles.hero}>
             <ThemedText type="title" style={styles.logo}>
-              Telus Control
+              Télos Control
             </ThemedText>
           </ThemedView>
 
