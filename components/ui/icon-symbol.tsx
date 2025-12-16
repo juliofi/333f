@@ -20,6 +20,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'chart.bar.fill': 'bar-chart',
   'building.columns.fill': 'business',
+  'building.columns': 'business',
   'list.bullet': 'list',
   'person.crop.circle.fill': 'account-circle',
   'arrow.down.circle.fill': 'arrow-downward',
@@ -29,6 +30,9 @@ const MAPPING = {
   'arrow.up.right': 'trending-up',
   'arrow.down.right': 'trending-down',
   'plus.circle.fill': 'add-circle',
+  'pencil': 'edit',
+  'trash': 'delete',
+  'xmark.circle.fill': 'cancel',
 } as IconMapping;
 
 /**

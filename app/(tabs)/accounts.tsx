@@ -1,46 +1,170 @@
 import { AnimatedBackground } from '@/components/animated-background';
 import { GlassContainer } from '@/components/glass-container';
 import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { atualizarConta, buscarContas, criarConta, deletarConta, type ContaBancaria } from '@/lib/contas';
+import { supabase } from '@/lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
+  const [contas, setContas] = useState<ContaBancaria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingConta, setEditingConta] = useState<ContaBancaria | null>(null);
+  
+  // Formulário
+  const [codigoContaBanco, setCodigoContaBanco] = useState('');
+  const [codigoBanco, setCodigoBanco] = useState('');
+  const [codigoAgencia, setCodigoAgencia] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [numeroConta, setNumeroConta] = useState('');
 
-  // Dados mockados - serão substituídos pela API
-  const accounts = [
-    {
-      id: '1',
-      name: 'Banco do Brasil',
-      type: 'Conta Corrente',
-      accountNumber: '****1234',
-      balance: 'R$ 125.450,00',
-      bankCode: '001',
-    },
-    {
-      id: '2',
-      name: 'Itaú',
-      type: 'Conta Corrente',
-      accountNumber: '****5678',
-      balance: 'R$ 89.320,50',
-      bankCode: '341',
-    },
-    {
-      id: '3',
-      name: 'Bradesco',
-      type: 'Conta Poupança',
-      accountNumber: '****9012',
-      balance: 'R$ 31.120,00',
-      bankCode: '237',
-    },
-  ];
+  useEffect(() => {
+    carregarUsuarioEContas();
+  }, []);
+
+  const carregarUsuarioEContas = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        await carregarContas(user.id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuário:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const carregarContas = async (userId: string) => {
+    try {
+      const dados = await buscarContas(userId);
+      setContas(dados);
+    } catch (error) {
+      console.error('Erro ao carregar contas:', error);
+      Alert.alert('Erro', 'Não foi possível carregar as contas.');
+    }
+  };
+
+  const abrirModalAdicionar = () => {
+    setEditingConta(null);
+    setCodigoContaBanco('');
+    setCodigoBanco('');
+    setCodigoAgencia('');
+    setDescricao('');
+    setNumeroConta('');
+    setModalVisible(true);
+  };
+
+  const abrirModalEditar = (conta: ContaBancaria) => {
+    setEditingConta(conta);
+    setCodigoContaBanco(conta.codigo_conta_banco.toString());
+    setCodigoBanco(conta.codigo_banco.toString());
+    setCodigoAgencia(conta.codigo_agencia.toString());
+    setDescricao(conta.descricao);
+    setNumeroConta(conta.numero_conta);
+    setModalVisible(true);
+  };
+
+  const fecharModal = () => {
+    setModalVisible(false);
+    setEditingConta(null);
+  };
+
+  const validarFormulario = (): boolean => {
+    if (!codigoContaBanco || !codigoBanco || !codigoAgencia || !descricao || !numeroConta) {
+      Alert.alert('Erro', 'Preencha todos os campos.');
+      return false;
+    }
+    if (descricao.length > 40) {
+      Alert.alert('Erro', 'A descrição deve ter no máximo 40 caracteres.');
+      return false;
+    }
+    if (numeroConta.length > 20) {
+      Alert.alert('Erro', 'O número da conta deve ter no máximo 20 caracteres.');
+      return false;
+    }
+    return true;
+  };
+
+  const salvarConta = async () => {
+    if (!validarFormulario() || !userId) return;
+
+    try {
+      const dadosConta = {
+        codigo_conta_banco: parseInt(codigoContaBanco),
+        codigo_empresa: userId,
+        codigo_banco: parseInt(codigoBanco),
+        codigo_agencia: parseInt(codigoAgencia),
+        descricao: descricao.trim(),
+        numero_conta: numeroConta.trim(),
+      };
+
+      if (editingConta) {
+        await atualizarConta(editingConta.id!, dadosConta);
+        Alert.alert('Sucesso', 'Conta atualizada com sucesso!');
+      } else {
+        await criarConta(dadosConta);
+        Alert.alert('Sucesso', 'Conta criada com sucesso!');
+      }
+
+      fecharModal();
+      await carregarContas(userId);
+    } catch (error: any) {
+      console.error('Erro ao salvar conta:', error);
+      Alert.alert('Erro', error.message || 'Não foi possível salvar a conta.');
+    }
+  };
+
+  const confirmarDeletar = (conta: ContaBancaria) => {
+    Alert.alert(
+      'Confirmar exclusão',
+      `Deseja realmente excluir a conta "${conta.descricao}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletarConta(conta.id!);
+              Alert.alert('Sucesso', 'Conta excluída com sucesso!');
+              if (userId) await carregarContas(userId);
+            } catch (error: any) {
+              console.error('Erro ao deletar conta:', error);
+              Alert.alert('Erro', error.message || 'Não foi possível excluir a conta.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatarNumeroConta = (numero: string) => {
+    if (numero.length <= 4) return numero;
+    return `****${numero.slice(-4)}`;
+  };
 
   const getBankIcon = (bankCode: string) => {
-    // Ícones baseados no código do banco
     return 'building.columns.fill';
   };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <AnimatedBackground />
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 16 }]}>
+          <ThemedText style={styles.loadingText}>Carregando contas...</ThemedText>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -52,55 +176,75 @@ export default function AccountsScreen() {
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>Contas Bancárias</ThemedText>
           <ThemedText style={styles.subtitle}>
-            {accounts.length} conta{accounts.length !== 1 ? 's' : ''} conectada{accounts.length !== 1 ? 's' : ''}
+            {contas.length} conta{contas.length !== 1 ? 's' : ''} conectada{contas.length !== 1 ? 's' : ''}
           </ThemedText>
         </View>
 
         <GlassContainer style={styles.summaryCard}>
           <View style={styles.summaryContent}>
             <Text style={styles.summaryLabel}>
-            Saldo Total
+              Total de Contas
             </Text>
             <Text style={styles.summaryAmount}>
-            R$ 245.890,50
+              {contas.length}
             </Text>
           </View>
         </GlassContainer>
 
         <View style={styles.accountsList}>
-          {accounts.map((account) => (
-            <GlassContainer key={account.id} style={styles.accountCard}>
+          {contas.map((conta) => (
+            <GlassContainer key={conta.id} style={styles.accountCard}>
               <View style={styles.accountHeader}>
                 <View style={styles.bankIcon}>
                   <IconSymbol name="building.columns.fill" size={24} color="#00b09b" />
                 </View>
                 <View style={styles.accountInfo}>
                   <ThemedText type="defaultSemiBold" style={styles.accountName}>
-                    {account.name}
+                    {conta.descricao}
                   </ThemedText>
                   <ThemedText style={styles.accountType}>
-                    {account.type} • {account.accountNumber}
+                    Banco: {conta.codigo_banco} • Agência: {conta.codigo_agencia} • Conta: {formatarNumeroConta(conta.numero_conta)}
                   </ThemedText>
                 </View>
+                <View style={styles.actionsContainer}>
+                  <TouchableOpacity
+                    onPress={() => abrirModalEditar(conta)}
+                    style={styles.actionButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <IconSymbol name="pencil" size={18} color="#00b09b" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => confirmarDeletar(conta)}
+                    style={styles.actionButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <IconSymbol name="trash" size={18} color="#ff4444" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.accountBalance}>
-                <Text style={styles.balanceLabel}>
-                  Saldo disponível
-                </Text>
-                <Text style={styles.balanceAmount}>
-                  {account.balance}
-                </Text>
+              <View style={styles.accountDetails}>
+                <ThemedText style={styles.detailText}>
+                  Código Conta Banco: {conta.codigo_conta_banco}
+                </ThemedText>
               </View>
             </GlassContainer>
           ))}
         </View>
 
+        {contas.length === 0 && (
+          <GlassContainer style={styles.emptyState}>
+            <IconSymbol name="building.columns" size={48} color="rgba(255, 255, 255, 0.5)" />
+            <ThemedText style={styles.emptyStateText}>
+              Nenhuma conta cadastrada
+            </ThemedText>
+            <ThemedText style={styles.emptyStateSubtext}>
+              Adicione sua primeira conta bancária
+            </ThemedText>
+          </GlassContainer>
+        )}
+
         <TouchableOpacity
           style={styles.addAccountCard}
-          onPress={() => {
-            // Navegar para adicionar conta
-            console.log('Adicionar nova conta');
-          }}
+          onPress={abrirModalAdicionar}
           activeOpacity={0.7}>
           <IconSymbol name="plus.circle.fill" size={32} color="#00b09b" />
           <Text style={styles.addAccountText}>
@@ -108,6 +252,108 @@ export default function AccountsScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Modal de Adicionar/Editar Conta */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={fecharModal}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + 20 }]}>
+            <AnimatedBackground />
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <ThemedText type="title" style={styles.modalTitle}>
+                  {editingConta ? 'Editar Conta' : 'Nova Conta'}
+                </ThemedText>
+                <TouchableOpacity onPress={fecharModal} style={styles.closeButton}>
+                  <IconSymbol name="xmark.circle.fill" size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formContainer}>
+                <View style={styles.inputContainer}>
+                  <ThemedText style={styles.inputLabel}>Código Conta Banco</ThemedText>
+                  <TextInput
+                    value={codigoContaBanco}
+                    onChangeText={setCodigoContaBanco}
+                    placeholder="Ex: 1"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <ThemedText style={styles.inputLabel}>Código Banco</ThemedText>
+                  <TextInput
+                    value={codigoBanco}
+                    onChangeText={setCodigoBanco}
+                    placeholder="Ex: 001 (BB), 341 (Itaú)"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <ThemedText style={styles.inputLabel}>Código Agência</ThemedText>
+                  <TextInput
+                    value={codigoAgencia}
+                    onChangeText={setCodigoAgencia}
+                    placeholder="Ex: 1234"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    keyboardType="numeric"
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <ThemedText style={styles.inputLabel}>Descrição</ThemedText>
+                  <TextInput
+                    value={descricao}
+                    onChangeText={setDescricao}
+                    placeholder="Ex: Conta Corrente Principal"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    maxLength={40}
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <ThemedText style={styles.inputLabel}>Número da Conta</ThemedText>
+                  <TextInput
+                    value={numeroConta}
+                    onChangeText={setNumeroConta}
+                    placeholder="Ex: 12345-6"
+                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    maxLength={20}
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.modalActions}>
+                  <Button
+                    title={editingConta ? 'Atualizar' : 'Salvar'}
+                    onPress={salvarConta}
+                    style={styles.saveButton}
+                  />
+                  <Button
+                    title="Cancelar"
+                    onPress={fecharModal}
+                    variant="outline"
+                    style={styles.cancelButton}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -121,6 +367,16 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
   },
   header: {
     marginBottom: 24,
@@ -161,7 +417,7 @@ const styles = StyleSheet.create({
   accountHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   bankIcon: {
     width: 48,
@@ -183,20 +439,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: 'rgba(255, 255, 255, 0.6)',
   },
-  accountBalance: {
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    padding: 4,
+  },
+  accountDetails: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: 16,
+    paddingTop: 12,
   },
-  balanceLabel: {
+  detailText: {
     fontSize: 12,
-    marginBottom: 4,
     color: 'rgba(255, 255, 255, 0.7)',
-  },
-  balanceAmount: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   addAccountCard: {
     padding: 24,
@@ -214,5 +471,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#00b09b',
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyStateSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  formContainer: {
+    gap: 8,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#FFFFFF',
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  modalActions: {
+    marginTop: 24,
+    gap: 12,
+  },
+  saveButton: {
+    backgroundColor: '#00b09b',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
   },
 });
